@@ -1,0 +1,18 @@
+{
+    "manifest_version": 2,
+    "name": "tinycards_close_good_decks",
+    "version": "1.0",
+
+    "description": "Close good tinycard decks automatically (opened from bookmark links)",
+
+    "permissions": ["tabs"],
+
+    "background": {
+        "scripts": ["background_script.js"]
+    },
+
+    "content_scripts": [{
+        "matches": ["*://tinycards.duolingo.com/decks/*"],
+        "js": ["content_script.js"]
+    }]
+}
