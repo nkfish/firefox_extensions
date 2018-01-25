@@ -7,6 +7,11 @@ var timeout = null;
 
 var checkForWeakSets = function()
 {
+    // if (document.readyState == "complete")
+    // {
+    //     browser.runtime.sendMessage("TAB_LOADED");
+    // }
+
     // click lesson tab/button...
     [...document.querySelectorAll("div > div > div > div > div > div > div")]
                 .filter((item) => item.innerHTML==="Lessons")[0]
@@ -25,27 +30,31 @@ var checkForWeakSets = function()
     {
         console.log(Date.now() - start + " ms - " + "extension: weak");
 
+        browser.runtime.sendMessage("TAB_WEAK");
+
         observer.disconnect();
     }
     else
     {
         console.log(Date.now() - start + " ms - " + "extension: good");
 
-        timeout = setTimeout(timeoutCallback, 1000*60);        
+        timeout = setTimeout(timeoutCallback, 1000*5);        
     }
 }
 
 var timeoutCallback = function()
 {
-    console.log("extension, timeout: " + document.readyState)
-    console.log("extension: call closeTab...");
+    console.log(Date.now() - start + " ms - " + "extension, timeout: " + document.readyState)
+    console.log(Date.now() - start + " ms - " + "extension: call closeTab...");
     
     if (document.readyState == "complete")
     {
         let weakSets = document.querySelectorAll("div > div > div > div > div > div > div > div > div > span");
         if (weakSets.length == 0)
         {
-            browser.runtime.sendMessage("closeTab");
+            browser.runtime.sendMessage("TAB_GOOD");
+            observer.disconnect();
+            console.log(Date.now() - start + " ms - " + "extension: closing tab...");
             return;
         }
     }
