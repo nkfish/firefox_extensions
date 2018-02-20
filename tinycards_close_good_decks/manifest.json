@@ -12,7 +12,7 @@
     },
 
     "content_scripts": [{
-        "matches": ["*://tinycards.duolingo.com/decks/*"],
+        "matches": ["*://tinycards.duolingo.com/decks/*","*://www.memrise.com/course/*"],
         "js": ["content_script.js"]
     }],
 

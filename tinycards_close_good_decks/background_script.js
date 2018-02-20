@@ -19,9 +19,9 @@ function get_debug_output_lines()
     return debug_lines;
 }
 
-browser.runtime.onMessage.addListener((message, sender) =>
+browser.runtime.onMessage.addListener(async (message, sender) =>
 {
-    onMessage(message, sender);
+    await onMessage(message, sender);
 });
 
 async function onMessage(message, sender)
@@ -36,13 +36,22 @@ async function onMessage(message, sender)
             if (idx !== -1)
             {
                 add_debug_output_line("closing tab: " + sender.tab.id);
-                await browser.tabs.remove(sender.tab.id);
+
+                try
+                {
+                    await browser.tabs.remove(sender.tab.id);
+                }
+                catch(error)
+                {
+                    add_debug_output_line("error, closing tab: " + error );
+                }
+                
                 loading_tabs.splice(idx, 1);
                 await load_tab();
             }
             else
             {
-                add_debug_output_line("error: tab (" + sender.tab.id + ") not in loading_tabs...");
+                add_debug_output_line("error, good: tab (" + sender.tab.id + ") not in loading_tabs...");
             }
 
         }
@@ -50,16 +59,16 @@ async function onMessage(message, sender)
         {
             add_debug_output_line("received message (" + sender.tab.id + "): " + "TAB_WEAK");
 
-            let id = loading_tabs.indexOf(sender.tab.id);
-            if (id !== -1)
+            let idx = loading_tabs.indexOf(sender.tab.id);
+            if (idx !== -1)
             {
                 num_weak_tabs++;
-                loading_tabs.splice(id, 1);
+                loading_tabs.splice(idx, 1);
                 await load_tab();
             }
             else
             {
-                add_debug_output_line("error: tab (" + sender.tab.id + ") not in loading_tabs...");
+                add_debug_output_line("error, weak: tab (" + sender.tab.id + ") not in loading_tabs...");
             }
         }
         else if (message == "TAB_LOADED")
@@ -79,6 +88,12 @@ async function load_tab()
     try
     {
         add_debug_output_line("In load_tab...");
+
+        if (num_weak_tabs >= 10)
+        {
+            tabs_to_load = [];
+        }
+
         if (tabs_to_load.length == 0)
         {
             add_debug_output_line("load_tab: no tabs to load");
@@ -91,15 +106,11 @@ async function load_tab()
             return;
         }
 
-        if (num_weak_tabs >= 10)
-        {
-            tabs_to_load = [];
-        }
-
         let url_to_load = tabs_to_load.shift();
 
         let tab = await browser.tabs.create({
-            url: url_to_load
+            active: false,
+            url: url_to_load,
         });
 
         loading_tabs.push(tab.id);

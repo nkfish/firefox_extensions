@@ -1,21 +1,10 @@
 var start = Date.now();
 
-var targetNode = document.getElementById("root");
-var config = {childList: true, subtree: true};
-
 var timeout = null;
 
 var checkForWeakSets = function()
 {
-    // if (document.readyState == "complete")
-    // {
-    //     browser.runtime.sendMessage("TAB_LOADED");
-    // }
-
-    // click lesson tab/button...
-    [...document.querySelectorAll("div > div > div > div > div > div > div")]
-                .filter((item) => item.innerHTML==="Lessons")[0]
-                .click();
+    doPreCheckWork();
 
     if (timeout !== null)
     {
@@ -24,21 +13,16 @@ var checkForWeakSets = function()
         timeout = null;
     }
 
-    let weakSets = document.querySelectorAll("div > div > div > div > div > div > div > div > div > span");
-    
-    if (weakSets.length > 0)
+    if (checkWeak())
     {
         console.log(Date.now() - start + " ms - " + "extension: weak");
-
         browser.runtime.sendMessage("TAB_WEAK");
-
         observer.disconnect();
     }
     else
     {
         console.log(Date.now() - start + " ms - " + "extension: good");
-
-        timeout = setTimeout(timeoutCallback, 1000*5);        
+        timeout = setTimeout(timeoutCallback, 1000*5);    
     }
 }
 
@@ -49,8 +33,7 @@ var timeoutCallback = function()
     
     if (document.readyState == "complete")
     {
-        let weakSets = document.querySelectorAll("div > div > div > div > div > div > div > div > div > span");
-        if (weakSets.length == 0)
+        if (!checkWeak())
         {
             browser.runtime.sendMessage("TAB_GOOD");
             observer.disconnect();
@@ -62,6 +45,83 @@ var timeoutCallback = function()
     checkForWeakSets();
 }
 
+var doPreCheckWork = function()
+{
+    let hostname = window.location.hostname;
+    if (hostname == "tinycards.duolingo.com")
+    {
+        // click lesson tab/button...
+        [...document.querySelectorAll("div > div > div > div > div > div > div > div")]
+            .filter((item) => item.innerHTML==="Lessons")[0]
+            .click();
+    }
+    else if (hostname == "www.memrise.com")
+    {
+        return;
+    }
+    else
+    {
+        return;
+    }
+}
+
+var checkWeak = function()
+{
+    let hostname = window.location.hostname;
+    if (hostname == "tinycards.duolingo.com")
+    {
+        return checkWeakTinycards();
+    }
+    else if (hostname == "www.memrise.com")
+    {
+        return checkWeakMemrise();
+    }
+    else
+    {
+        console.log(Date.now() - start + " ms - " + "extension, checkWeak: unknown website...");
+        return true;
+    }
+}
+
+var checkWeakTinycards = function()
+{
+    console.log(Date.now() - start + " ms - " + "extension: in checkWeakTinycards");
+    let weakSets = document.querySelectorAll("div > div > div > div > div > div > div > div > div > div > div > span");
+    return weakSets.length > 0;
+}
+
+var checkWeakMemrise = function()
+{
+    console.log(Date.now() - start + " ms - " + "extension: in checkWeakMemrise");
+
+    let reviewSpan = [...document.querySelectorAll("div > div > div > div > div > div > a > span")]
+                        .filter((item) => item.textContent.trim().startsWith("Review"))[0]
+                        .textContent.trim();
+
+    if (reviewSpan.length > 6)
+    {
+        console.log(Date.now() - start + " ms - " + "extension, checkWeakMemrise: have review words");
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+
+    let progressBoxTitle = document.getElementsByClassName("progress-box-title")[0];
+    let parts = progressBoxTitle.textContent.trim().split("/");
+    let learned = Number(parts[0].trim());
+    let total = Number(parts[1].trim().split(" ")[0].trim())
+
+    if (learned < total)
+    {
+        console.log(Date.now() - start + " ms - " + "extension, checkWeakMemrise: have new words");
+        return true;
+    }
+
+    return false;
+}
+
 var mutationObserverCallback = function(mutationsList)
 {
     console.log(Date.now() - start + " ms - " + "extension, callback: " + document.readyState);
@@ -70,7 +130,10 @@ var mutationObserverCallback = function(mutationsList)
 
 var observer = new MutationObserver(mutationObserverCallback);
 
+var targetNode = document.body; //document.getElementById("root");
+var config = {childList: true, subtree: true};
 observer.observe(targetNode, config);
+
 checkForWeakSets();
 
 window.addEventListener("load", function()
@@ -79,9 +142,6 @@ window.addEventListener("load", function()
     checkForWeakSets();
 });
 
-// click lesson tab/button...
-[...document.querySelectorAll("div > div > div > div > div > div > div")]
-                .filter((item) => item.innerHTML==="Lessons")[0]
-                .click();
+doPreCheckWork();
 
 console.log(Date.now() - start + " ms - " + "extension, end: " + document.readyState);
