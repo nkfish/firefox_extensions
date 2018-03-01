@@ -103,10 +103,6 @@ var checkWeakMemrise = function()
         console.log(Date.now() - start + " ms - " + "extension, checkWeakMemrise: have review words");
         return true;
     }
-    else
-    {
-        return false;
-    }
 
     let progressBoxTitle = document.getElementsByClassName("progress-box-title")[0];
     let parts = progressBoxTitle.textContent.trim().split("/");
