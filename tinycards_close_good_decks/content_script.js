@@ -86,7 +86,7 @@ var checkWeak = function()
 var checkWeakTinycards = function()
 {
     console.log(Date.now() - start + " ms - " + "extension: in checkWeakTinycards");
-    let weakSets = document.querySelectorAll("div > div > div > div > div > div > div > div > div > div > div > span");
+    let weakSets = document.querySelectorAll("div > div > div > div > div > div > div > div > div > div > div > span:not(.SVGInline)");
     return weakSets.length > 0;
 }
 
