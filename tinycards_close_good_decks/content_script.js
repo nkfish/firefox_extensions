@@ -94,7 +94,7 @@ var checkWeakMemrise = function()
 {
     console.log(Date.now() - start + " ms - " + "extension: in checkWeakMemrise");
 
-    let reviewSpan = [...document.querySelectorAll("div > div > div > div > div > div > a > span")]
+    let reviewSpan = [...document.querySelectorAll("div > div > div > div > a > span")]
                         .filter((item) => item.textContent.trim().startsWith("Review"))[0]
                         .textContent.trim();
 
@@ -104,14 +104,22 @@ var checkWeakMemrise = function()
         return true;
     }
 
-    let progressBoxTitle = document.getElementsByClassName("progress-box-title")[0];
-    let parts = progressBoxTitle.textContent.trim().split("/");
-    let learned = Number(parts[0].trim());
-    let total = Number(parts[1].trim().split(" ")[0].trim())
+    let match = document.getElementsByClassName("progress-box-title")[0]
+                        .innerHTML
+                        .match(/(\d+) \/ (\d+) words learned \((\d+) in long term memory\)/)
+
+    let learned = Number(match[1])
+    let total = Number(match[2])
+    let longTerm = Number(match[3])
 
     if (learned < total)
     {
         console.log(Date.now() - start + " ms - " + "extension, checkWeakMemrise: have new words");
+        return true;
+    }
+    else if (longTerm < total)
+    {
+        console.log(Date.now() - start + " ms - " + "extension, checkWeakMemrise: have words not in long term memory");
         return true;
     }
 
