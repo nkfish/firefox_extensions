@@ -27,11 +27,7 @@ function display_debug_write()
     let lines = page.get_debug_output_lines();
 
     let debug_div = document.getElementById("debug-output");
-    
-    while(debug_div.hasChildNodes())
-    {
-        debug_div.removeChild(debug_div.lastChild);
-    }
+    debug_div.innerHTML = "";
 
     for (line of lines)
     {
@@ -42,37 +38,78 @@ function display_debug_write()
     }
 }
 
-async function getRootFolderId()
+class SavedTab
 {
-    let rootFolderId;
-    let bookmarks = await browser.bookmarks.search(ROOT_FOLDER_TITLE)
-    if (bookmarks.length === 0) {
-        let folder = await browser.bookmarks.create({
-            title: ROOT_FOLDER_TITLE
-        });
-        rootFolderId = folder.id;
-    } else {
-        rootFolderId = bookmarks[0].id;
+    constructor(url, title) {
+        this.url = url;
+        this.title = title;
     }
-    return rootFolderId;
+
+    containsText(text) {
+        return this.url.toLowerCase().indexOf(text) !== -1 || this.title.toLowerCase().indexOf(text) !== -1;
+    }
+
+    createHTML() {
+        let tabLi = document.createElement("li");
+        tabLi.classList.add("tablistitem");
+        
+        let a = document.createElement("a");
+        a.href = this.url;
+        a.classList.add("tabitem");
+        a.innerHTML = this.title;
+
+        tabLi.appendChild(a);
+
+        return tabLi;
+    }
+
 }
 
-async function displayTabsListFromBookmarks()
+class SavedWindow
 {
-    let tabsRootDiv = document.getElementById("tabs-root");
+    constructor(folderId, position) {
+        this.folderId = folderId;
+        this.position = position;
+        this.savedTabs = [];
+    }
 
-    let saveWindowDiv = document.createElement("div");
-    saveWindowText = document.createTextNode("Save Window...");
-    saveWindowDiv.appendChild(saveWindowText);
-    saveWindowDiv.classList.add("button");
-    saveWindowDiv.addEventListener("click", () => { saveTabsToBookmarks() });
-    tabsRootDiv.appendChild(saveWindowDiv);
+    async loadFromBookmarks() {
+        let bookmarks = await browser.bookmarks.getChildren(this.folderId);
 
-    let rootFolderId = await getRootFolderId();
-    let folders = await browser.bookmarks.getChildren(rootFolderId);
+        for (let bookmark of bookmarks)
+        {
+            let savedTab = new SavedTab(bookmark.url, bookmark.title);
+            this.savedTabs.push(savedTab);
+        }
+    }
 
-    for (folder of folders)
-    {
+    async containsText(text) {
+        if (this.savedTabs.length === 0) {
+            await this.loadFromBookmarks();
+        }
+
+        for (let tab of this.savedTabs) {
+            if (tab.containsText(text)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    async loadTabsInNewWindow() {
+        // remove bookmarks
+        await browser.bookmarks.removeTree(this.folderId);
+
+        // load new window with tabs
+        let urls = this.savedTabs.map(savedTab => savedTab.url);
+        await browser.windows.create({url: urls});
+    }
+
+    async createHTML() {
+        if (this.savedTabs.length === 0) {
+            await this.loadFromBookmarks();
+        }
+
         let folderRootDiv = document.createElement("div");
 
         let sepHr = document.createElement("hr");
@@ -80,84 +117,184 @@ async function displayTabsListFromBookmarks()
 
         let folderButtonDiv = document.createElement("div");
         folderButtonDiv.classList.add("button");
-        
-        folderButtonText = document.createTextNode("Load Tabs...")
-        folderButtonDiv.appendChild(folderButtonText);
-
-        // TODO does this get removed when reset, or does it leak?...
-        let folderId = folder.id;
-        folderButtonDiv.addEventListener("click", () => {loadTabsFromBookmarks(folderId)})
-
+        folderButtonDiv.innerHTML = "Load Tabs...";
+        folderButtonDiv.addEventListener("click", () => {this.loadTabsInNewWindow()})
         folderRootDiv.appendChild(folderButtonDiv);
 
         let folderUl = document.createElement("ul");
+        folderUl.classList.add("tablist")
         folderRootDiv.appendChild(folderUl);
 
-        folderUl.classList.add("tablist")
-
-        let bookmarks = await browser.bookmarks.getChildren(folder.id);
-        for (bookmark of bookmarks)
+        for (let savedTab of this.savedTabs)
         {
-            tabLi = document.createElement("li");
-            tabLi.classList.add("tablistitem");
-            
-            let a = document.createElement("a");
-            a.href = bookmark.url;
-            a.classList.add("tabitem");
-
-            let textNode = document.createTextNode(bookmark.title);
-            a.appendChild(textNode);
-            tabLi.appendChild(a);
-
+            let tabLi = savedTab.createHTML();
             folderUl.appendChild(tabLi);
         }
 
-        tabsRootDiv.appendChild(folderRootDiv);
+        return folderRootDiv;
     }
 }
 
-async function saveTabsToBookmarks()
+class SavedWindowsList
 {
-    let current_window = await browser.windows.getCurrent({populate: true});
+    constructor() {
+        this.savedWindows = [];
+        this.num_to_display = 0;
+        this.direction = 1;
+        this.searchText = "";
 
-    let rootFolderId = await getRootFolderId();
+        this.loading = false;
 
-    // create a bookmark folder for this window
-    let folder = await browser.bookmarks.create({
-        index: 0, // sort newest first
-        parentId: rootFolderId,
-        title: Date.now().toString(),
-    });
+        let rootDiv = document.getElementById("root");
 
-    // save the tabs as bookmarks
-    for (tab of current_window.tabs)
+        let saveWindowDiv = document.createElement("div");
+        saveWindowDiv.innerHTML = "Save Window...";
+        saveWindowDiv.classList.add("button");
+        saveWindowDiv.addEventListener("click", () => { this.saveTabsToBookmarks() });
+        rootDiv.appendChild(saveWindowDiv);
+
+        let toggleSortDiv = document.createElement("div");
+        toggleSortDiv.innerHTML = "Toggle Sort Direction...";
+        toggleSortDiv.classList.add("button");
+        toggleSortDiv.addEventListener("click", () => { this.toggleSortDirection() });
+        rootDiv.appendChild(toggleSortDiv);
+
+        let searchInput = document.createElement("input");
+        searchInput.type = "text"
+        searchInput.addEventListener("input", (event) => { this.onSearchTextChange(event) });
+        rootDiv.appendChild(searchInput);
+
+        let tabsRootDiv = document.createElement("div");
+        tabsRootDiv.id = "tabs-root";
+        rootDiv.appendChild(tabsRootDiv);
+    }
+
+    async getRootFolderId()
     {
-        await browser.bookmarks.create({
-            parentId: folder.id,
-            title: tab.title,
-            url: tab.url,
+        let rootFolderId;
+        let bookmarks = await browser.bookmarks.search(ROOT_FOLDER_TITLE)
+        if (bookmarks.length === 0) {
+            let folder = await browser.bookmarks.create({
+                title: ROOT_FOLDER_TITLE
+            });
+            rootFolderId = folder.id;
+        } else {
+            rootFolderId = bookmarks[0].id;
+        }
+        return rootFolderId;
+    }
+
+    async loadFromBookmarks() {
+        let rootFolderId = await this.getRootFolderId();
+        let folders = await browser.bookmarks.getChildren(rootFolderId);
+
+        for (let i = 0; i < folders.length; i++) {
+            const folder = folders[i];
+            let savedWindow = new SavedWindow(folder.id, i);
+            // await savedWindow.loadFromBookmarks();
+            this.savedWindows.push(savedWindow);
+        }
+
+        await this.displayMoreSavedWindows();
+    }
+
+    async displayMoreSavedWindows() {
+        this.num_to_display = Math.min(this.num_to_display + 10, this.savedWindows.length);
+        await this.createHTML();
+    }
+
+    async saveTabsToBookmarks()
+    {
+        let current_window = await browser.windows.getCurrent({populate: true});
+
+        let rootFolderId = await this.getRootFolderId();
+
+        // create a bookmark folder for this window
+        let folder = await browser.bookmarks.create({
+            index: 0, // sort newest first
+            parentId: rootFolderId,
+            title: Date.now().toString(),
         });
+
+        // save the tabs as bookmarks
+        for (let tab of current_window.tabs)
+        {
+            await browser.bookmarks.create({
+                parentId: folder.id,
+                title: tab.title,
+                url: tab.url,
+            });
+        }
+
+        // close the saved window
+        await browser.windows.remove(current_window.id);
     }
 
-    // close the saved window
-    await browser.windows.remove(current_window.id);
-}
+    async toggleSortDirection() {
+        this.direction *= -1;
+        this.savedWindows.sort((a, b) => this.direction * (a.position - b.position) );
 
-async function loadTabsFromBookmarks(folderId)
-{
-    let bookmarks = await browser.bookmarks.getChildren(folderId);
-    if (bookmarks.length === 0)
-    {
-        return;
+        this.num_to_display = 0;
+        await this.displayMoreSavedWindows();
     }
 
-    // remove bookmarks
-    await browser.bookmarks.removeTree(folderId);
+    async onSearchTextChange(event) {
+        if (this.searchText !== event.target.value) {
+            this.searchText = event.target.value;
+            this.num_to_display = 0;
+            await this.displayMoreSavedWindows();
+        }
+    }
 
-    // load new window with tabs
-    let urls = bookmarks.map(bookmark => bookmark.url)
-    await browser.windows.create({url: urls});
+    async createHTML() {
+        if (this.loading) {
+            setTimeout(this.createHTML, 1000);
+            return;
+        }
+
+        this.loading = true;
+
+        let tabsRootDiv = document.getElementById("tabs-root");
+        tabsRootDiv.innerHTML = "";        
+
+        let showLoadMoreButton = true;
+
+        let textLower = this.searchText.toLowerCase();
+        for (let i = 0, j = 0; i < this.savedWindows.length && j < this.num_to_display; i++)
+        {
+            const savedWindow = this.savedWindows[i];
+            if (textLower == "" || await savedWindow.containsText(textLower)) {
+                j++;
+                let folderRootDiv = await savedWindow.createHTML();
+                tabsRootDiv.appendChild(folderRootDiv);
+            }
+
+            if (i === this.savedWindows.length - 1) {
+                showLoadMoreButton = false;
+            }
+        }
+
+        if (showLoadMoreButton) {
+            let sepHr = document.createElement("hr");
+            tabsRootDiv.appendChild(sepHr);
+
+            let loadMoreDiv = document.createElement("div");
+            loadMoreDiv.innerHTML = "Load More Saved Windows...";
+            loadMoreDiv.classList.add("button");
+            loadMoreDiv.addEventListener("click", () => { this.displayMoreSavedWindows() });
+            tabsRootDiv.appendChild(loadMoreDiv);
+        }
+
+        if (this.num_to_display > 10) {
+            let scrollDiv = tabsRootDiv.parentElement.parentElement;
+            scrollDiv.scroll(0, scrollDiv.scrollHeight);
+        }
+
+        this.loading = false;
+    }
 }
 
-displayTabsListFromBookmarks();
+let savedWindowsList = new SavedWindowsList();
+savedWindowsList.loadFromBookmarks();
+
 display_debug_write();

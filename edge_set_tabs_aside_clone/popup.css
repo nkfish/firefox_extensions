@@ -6,6 +6,10 @@ html, body {
     height: 480px;
 }
 
+input {
+    width: 100%;
+}
+
 .scrolldiv {
     max-height: 480px;
     overflow: auto;
