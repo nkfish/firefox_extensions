@@ -293,6 +293,7 @@ class SavedWindowsList
         tabsRootDiv.innerHTML = "";        
 
         let showLoadMoreButton = true;
+        let numSWRem = 0;
 
         let textLower = this.searchText.toLowerCase();
         for (let i = 0, j = 0; i < this.savedWindows.length && j < this.num_to_display; i++)
@@ -300,6 +301,7 @@ class SavedWindowsList
             const savedWindow = this.savedWindows[i];
             if (textLower == "" || await savedWindow.containsText(textLower)) {
                 j++;
+                numSWRem = this.savedWindows.length - i - 1;
                 let folderRootDiv = await savedWindow.createHTML();
                 tabsRootDiv.appendChild(folderRootDiv);
             }
@@ -314,7 +316,7 @@ class SavedWindowsList
             tabsRootDiv.appendChild(sepHr);
 
             let loadMoreDiv = document.createElement("div");
-            loadMoreDiv.innerHTML = "Load More Saved Windows...";
+            loadMoreDiv.innerHTML = "Load More Saved Windows (" + numSWRem + ")...";
             loadMoreDiv.classList.add("button");
             loadMoreDiv.addEventListener("click", () => { this.displayMoreSavedWindows() });
             tabsRootDiv.appendChild(loadMoreDiv);
