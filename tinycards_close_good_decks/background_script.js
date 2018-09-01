@@ -130,7 +130,7 @@ async function add_tabs_to_load(urls)
     loading_tabs = [];
     num_weak_tabs = 0;
 
-    while (loading_tabs.length < 5)
+    for (let i = 0; i < Math.min(5, tabs_to_load.length); i++)
     {
         await load_tab();
     }
