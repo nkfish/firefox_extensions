@@ -40,3 +40,7 @@ input {
 .button:hover {
     background-color: #CFF2F2;
 }
+
+.disabledinput {
+    cursor: auto;
+}

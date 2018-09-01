@@ -148,18 +148,21 @@ class SavedWindowsList
         let rootDiv = document.getElementById("root");
 
         let saveWindowDiv = document.createElement("div");
+        this.saveWindowDiv = saveWindowDiv;
         saveWindowDiv.innerHTML = "Save Window...";
         saveWindowDiv.classList.add("button");
         saveWindowDiv.addEventListener("click", () => { this.saveTabsToBookmarks() });
         rootDiv.appendChild(saveWindowDiv);
 
         let toggleSortDiv = document.createElement("div");
+        this.toggleSortDiv = toggleSortDiv;
         toggleSortDiv.innerHTML = "Toggle Sort Direction...";
         toggleSortDiv.classList.add("button");
         toggleSortDiv.addEventListener("click", () => { this.toggleSortDirection() });
         rootDiv.appendChild(toggleSortDiv);
 
         let searchInput = document.createElement("input");
+        this.searchInput = searchInput;
         searchInput.type = "text"
         searchInput.addEventListener("input", (event) => { this.onSearchTextChange(event) });
         rootDiv.appendChild(searchInput);
@@ -184,18 +187,41 @@ class SavedWindowsList
         return rootFolderId;
     }
 
+    enableInput() {
+        this.saveWindowDiv.style.pointerEvents = "auto";
+        this.saveWindowDiv.classList.remove("disableinput");
+        this.toggleSortDiv.style.pointerEvents = "auto";
+        this.toggleSortDiv.classList.remove("disableinput");
+        this.searchInput.style.pointerEvents = "auto";
+        this.searchInput.classList.remove("disableinput");
+        this.searchInput.readOnly = false;
+    }
+
+    disableInput() {
+        this.saveWindowDiv.style.pointerEvents = "none";
+        this.saveWindowDiv.classList.add("disableinput");
+        this.toggleSortDiv.style.pointerEvents = "none";
+        this.toggleSortDiv.classList.add("disableinput");
+        this.searchInput.style.pointerEvents = "none";
+        this.searchInput.classList.add("disableinput");
+        this.searchInput.readOnly = true;
+    }
+
     async loadFromBookmarks() {
+        this.disableInput();
+
         let rootFolderId = await this.getRootFolderId();
         let folders = await browser.bookmarks.getChildren(rootFolderId);
 
         for (let i = 0; i < folders.length; i++) {
             const folder = folders[i];
             let savedWindow = new SavedWindow(folder.id, i);
-            // await savedWindow.loadFromBookmarks();
             this.savedWindows.push(savedWindow);
         }
 
         await this.displayMoreSavedWindows();
+
+        this.enableInput();
     }
 
     async displayMoreSavedWindows() {
@@ -205,6 +231,8 @@ class SavedWindowsList
 
     async saveTabsToBookmarks()
     {
+        this.disableInput();
+
         let current_window = await browser.windows.getCurrent({populate: true});
 
         let rootFolderId = await this.getRootFolderId();
@@ -226,24 +254,31 @@ class SavedWindowsList
             });
         }
 
+        // this.enableInput();
+
         // close the saved window
         await browser.windows.remove(current_window.id);
     }
 
     async toggleSortDirection() {
+        this.disableInput();
+
         this.direction *= -1;
         this.savedWindows.sort((a, b) => this.direction * (a.position - b.position) );
 
         this.num_to_display = 0;
         await this.displayMoreSavedWindows();
+        this.enableInput();
     }
 
     async onSearchTextChange(event) {
+        this.disableInput();
         if (this.searchText !== event.target.value) {
             this.searchText = event.target.value;
             this.num_to_display = 0;
             await this.displayMoreSavedWindows();
         }
+        this.enableInput();
     }
 
     async createHTML() {
