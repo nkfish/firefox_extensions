@@ -46,7 +46,14 @@ class SavedTab
     }
 
     containsText(text) {
-        return this.url.toLowerCase().indexOf(text) !== -1 || this.title.toLowerCase().indexOf(text) !== -1;
+        for (let word of text) {
+            if (this.url.toLowerCase().indexOf(word) !== -1
+                || this.title.toLowerCase().indexOf(word) !== -1)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     createHTML() {
@@ -299,7 +306,7 @@ class SavedWindowsList
         for (let i = 0, j = 0; i < this.savedWindows.length && j < this.num_to_display; i++)
         {
             const savedWindow = this.savedWindows[i];
-            if (textLower == "" || await savedWindow.containsText(textLower)) {
+            if (textLower == "" || await savedWindow.containsText(textLower.split(' '))) {
                 j++;
                 numSWRem = this.savedWindows.length - i - 1;
                 let folderRootDiv = await savedWindow.createHTML();
