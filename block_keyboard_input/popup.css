@@ -1,0 +1,38 @@
+/* TODO visual artifacts when scrolling... */
+/* TODO li */
+
+html, body {
+    width: 600px;
+    height: 480px;
+}
+
+.scrolldiv {
+    max-height: 480px;
+    overflow: auto;
+}
+
+.tablist {
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tablistitem {
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.button {
+    width: 100%;
+    padding: 4px;
+    font-size: 1.5em;
+    text-align: center;
+    cursor: pointer;
+}
+
+.button:hover {
+    background-color: #CFF2F2;
+}
